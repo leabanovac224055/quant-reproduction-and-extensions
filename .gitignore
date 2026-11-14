@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# the authors' code, not redistributable
+Quant/
+
+# the UCR archive
+data/
