@@ -13,12 +13,10 @@ the 30 datasets added by the bake-off redux, since run_reproduction.py covers
 only the 112 equal-length UCR datasets; n_mine shows which those are.
 
 The published/theirs gap tests whether the released code reproduces the
-released numbers. The residual is classifier seed noise, since run.py sets no
-random_state.
+released numbers. Some difference is expected: run.py sets no random_state.
 
-The theirs/mine gap is dominated by the resampling scheme, but is not purely
-that: run_reproduction.py also fixes a classifier seed, so the gap is
-resampling plus seed noise.
+The theirs/mine gap combines two deliberate changes, the resampling scheme and
+a fixed classifier seed, and does not separate them.
 
 Dataset names differ between sources: our data folders use the Feb-2024
 underscore names (AconityMINIPrinterLarge_eq) while the published CSV uses the
@@ -27,27 +25,33 @@ later camel-case ones (AconityMINIPrinterLargeEq). Same datasets, renamed.
 All sources are assumed to have 30 resamples per dataset; the script warns if
 not, since the means would otherwise not be comparable.
 
-  python compare_three_way.py
+  python src/compare_three_way.py
 """
+
+import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------- CONFIG ----
 
-ROOT = "D:/AAI/TimeSeries/QuantProject"
+ROOT = Path(os.environ.get("QUANT_ROOT", Path(__file__).resolve().parent.parent))
 
-PUBLISHED = f"{ROOT}/Quant/quant-main/quant-main/results/accuracy_resamples_ucr142.csv"
-THEIRS    = f"{ROOT}/theirs142/results.csv"
-MINE      = f"{ROOT}/raw_results.csv"
+# the published accuracies ship inside the QUANT repository, which is not
+# redistributed here; clone it into Quant/ (see README)
+PUBLISHED = ROOT / "Quant/quant-main/quant-main/results/accuracy_resamples_ucr142.csv"
+THEIRS    = ROOT / "results/theirs142_results.csv"
+MINE      = ROOT / "results/raw_results.csv"
 
-OUT = f"{ROOT}/three_way_comparison.csv"
+OUT = ROOT / "results/three_way_comparison.csv"
 
 N_RESAMPLES = 30
 
-# the four datasets corrected by the bake-off erratum, reported separately
-ERRATUM = ["Covid3MonthDiscrete", "FloodModeling1Discrete",
-           "FloodModeling2Discrete", "FloodModeling3Discrete"]
+# the four datasets whose test sets the bake-off's published Correction
+# revises, reported separately
+CORRECTION = ["Covid3MonthDiscrete", "FloodModeling1Discrete",
+              "FloodModeling2Discrete", "FloodModeling3Discrete"]
 
 # -----------------------------------------------------------------------------
 
@@ -121,12 +125,12 @@ def main():
     print(worst.head(8)[["dataset", "published", "theirs", "theirs-pub"]]
           .round(4).to_string(index=False))
 
-    # ---- headline, with and without the erratum datasets ------------------
+    # ---- headline, with and without the correction datasets ------------------
 
-    clean = table[~table["dataset"].isin(ERRATUM)]
+    clean = table[~table["dataset"].isin(CORRECTION)]
 
     for label, frame in [("all datasets", table),
-                         (f"excluding the {len(ERRATUM)} erratum datasets",
+                         (f"excluding the {len(CORRECTION)} Correction datasets",
                           clean)]:
         print(f"\n{label}  (n={len(frame)})")
         print("-" * 62)
@@ -139,14 +143,13 @@ def main():
                   f"max {d.max():.4f}   n {d.notna().sum()}")
 
     print("\nReading it:")
-    print("  theirs-pub  -> does the released code reproduce the released")
-    print("                 numbers? The residual is classifier seed noise,")
-    print("                 since run.py sets no random_state")
-    print("  mine-theirs -> mainly the cost of aeon resampling instead of the")
-    print("                 official Java indices, plus seed noise")
-    print("\n  The erratum datasets are separated because the bake-off")
-    print("  corrected their test sets after publication; the released QUANT")
-    print("  results for those four do not match a run on the corrected data.")
+    print("  theirs-pub  -> whether the released code reproduces the released")
+    print("                 numbers. run.py sets no random_state, so some")
+    print("                 difference is expected from classifier noise")
+    print("  mine-theirs -> the combined effect of aeon resampling instead of")
+    print("                 the official Java indices and of fixing a seed")
+    print("\n  The four Correction datasets are reported separately because")
+    print("  the bake-off revised their test sets after publication.")
 
     table.to_csv(OUT, index=False)
     print(f"\nwritten to {OUT}")

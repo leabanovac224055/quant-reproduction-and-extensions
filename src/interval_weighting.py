@@ -36,10 +36,9 @@ renormalises the remaining weights after each draw, so a column's marginal
 chance of ending up in the subset is not its weight. Extreme weights are
 compressed toward uniform - for a scheme with an 89:1 weight ratio the
 shallowest depth received 44% of the subset where 51% was intended. The subset
-is now drawn by quota instead: exactly round(share_d * k) columns are taken
-uniformly at random from within each depth, which realises the target shares to
-within integer rounding. `achieved_shares()` reports what was actually drawn so
-this can be checked rather than assumed.
+is now drawn by quota instead: each depth’s share of k is allocated by floor 
+with the remainder going to the depths furthest below their entitlement, then 
+that many columns are taken uniformly at random from within each depth.
 """
 
 import numpy as np
@@ -156,9 +155,13 @@ def depth_quotas(target, available, n_cols):
     How many columns to draw from each depth so the subset matches `target`.
 
     `available` maps depth -> number of columns that depth has. Quotas are
-    floor(share * n_cols), capped at availability, with the remainder handed to
-    whichever depths are furthest below their fractional entitlement. The
-    result always sums to n_cols unless every depth is exhausted.
+    floor(share * n_cols), capped at availability, with the remainder handed
+    to whichever depths are furthest below their fractional entitlement.
+
+    The result sums to n_cols when the depths have enough columns between them
+    to satisfy the target. Where a depth is exhausted the shortfall is
+    redistributed over at most ten passes, so a badly skewed target against a
+    small depth can return fewer than n_cols columns.
     """
     depths = sorted(target)
     quota = {d: min(int(np.floor(target[d] * n_cols)), available[d])

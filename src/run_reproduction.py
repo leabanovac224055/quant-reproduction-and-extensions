@@ -14,31 +14,35 @@ aeon's stratified_resample_data, not the precomputed tsml index files the
 published results use. The cost of that substitution is measured separately
 (see compare_three_way.py).
 
-  python run_reproduction.py                 # run everything (resumes if interrupted)
-  python run_reproduction.py --smoke         # 8 small datasets, 5 resamples
-  python run_reproduction.py --compare-only  # just rebuild the comparison table
+  python src/run_reproduction.py                 # run everything (resumes if interrupted)
+  python src/run_reproduction.py --smoke         # 8 small datasets, 5 resamples
+  python src/run_reproduction.py --compare-only  # just rebuild the comparison table
 
 Results are appended to RAW_OUT after every dataset, so the run can be stopped
-and restarted without losing work. Edit the paths in the CONFIG block below.
+and restarted without losing work.
+
+Expects the UCR archive in data/ and the QUANT repository in Quant/ (see
+README). Set QUANT_ROOT if they live outside the repo.
 """
 
 import argparse
 import os
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------- CONFIG ----
 
-ROOT = os.environ.get("QUANT_ROOT", "D:/AAI/TimeSeries/QuantProject")
+ROOT = Path(os.environ.get("QUANT_ROOT", Path(__file__).resolve().parent.parent))
 
-QUANT_CODE  = f"{ROOT}/Quant/quant-main/quant-main/code"
-DATA_DIR    = f"{ROOT}/data/Univariate2018_ts/Univariate_ts"
-RESULTS_CSV = f"{ROOT}/Quant/quant-main/quant-main/results/accuracy_resamples_ucr142.csv"
-RAW_OUT     = f"{ROOT}/results/raw_results.csv"
-SUMMARY_OUT = f"{ROOT}/results/comparison.csv"
+QUANT_CODE  = str(ROOT / "Quant/quant-main/quant-main/code")
+DATA_DIR    = str(ROOT / "data/Univariate2018_ts/Univariate_ts")
+RESULTS_CSV = str(ROOT / "Quant/quant-main/quant-main/results/accuracy_resamples_ucr142.csv")
+RAW_OUT     = str(ROOT / "results/raw_results.csv")
+SUMMARY_OUT = str(ROOT / "results/comparison.csv")
 
 N_RESAMPLES = 30
 # classifier seed = SEED_OFFSET + resample index.
@@ -235,8 +239,7 @@ def report(table, expected_resamples):
 
     print("\nNote: if |diff| on fold 0 is small but |diff| over all resamples")
     print("is larger and one-sided, the resampling scheme is the likely cause,")
-    print("not the transform or the classifier. In our 112-dataset run the")
-    print("reverse held, so resampling was not the dominant factor.")
+    print("not the transform or the classifier.")
 
 
 # ----------------------------------------------------------------- main ----

@@ -32,12 +32,15 @@ with --all to remove the sampling question altogether.
 Figure 8 sweeps depth 4-8 against m, m/2, m/4, m/8, m/16 quantiles per
 interval, with the default classifier throughout.
 
-  python reproduce_fig8.py --list        show the eligible pool and stop
-  python reproduce_fig8.py --smoke       6 datasets, depths 5-7, divs 4/8/16
-  python reproduce_fig8.py               the paper's 50
-  python reproduce_fig8.py --all         every eligible dataset
+Expects the UCR archive in data/ and the QUANT repository in Quant/ (see
+README). Set QUANT_ROOT if they live outside the repo.
 
-Appends to fig8_results.csv after each dataset; safe to interrupt and resume.
+  python src/reproduce_fig8.py --list        show the eligible pool and stop
+  python src/reproduce_fig8.py --smoke       6 datasets, depths 5-7, divs 4/8/16
+  python src/reproduce_fig8.py               the paper's 50
+  python src/reproduce_fig8.py --all         every eligible dataset
+
+Appends to results/fig8_results.csv after each dataset; safe to interrupt and resume.
 
 A NOTE ON DEPTH CAPPING, which matters for reading any depth sweep:
 quant.py caps depth internally at min(depth, int(log2(L)) + 1) for each
@@ -52,6 +55,7 @@ import argparse
 import math
 import os
 import sys
+from pathlib import Path
 import time
 
 import numpy as np
@@ -59,10 +63,10 @@ import pandas as pd
 
 # ---------------------------------------------------------------- CONFIG ----
 
-ROOT = "D:/AAI/TimeSeries/QuantProject"
-QUANT_CODE = f"{ROOT}/Quant/quant-main/quant-main/code"
-DATA_DIR = f"{ROOT}/data/Univariate2018_ts/Univariate_ts"
-OUT = f"{ROOT}/fig8_results.csv"
+ROOT = Path(os.environ.get("QUANT_ROOT", Path(__file__).resolve().parent.parent))
+QUANT_CODE = str(ROOT / "Quant/quant-main/quant-main/code")
+DATA_DIR = str(ROOT / "data/Univariate2018_ts/Univariate_ts")
+OUT = str(ROOT / "results/fig8_results.csv")
 
 DEPTHS = [4, 5, 6, 7, 8]            # Fig. 8 x-axis
 DIVS = [1, 2, 4, 8, 16]             # m, m/2, m/4, m/8, m/16 - the five lines
@@ -78,12 +82,14 @@ MIN_PER_CLASS = 5
 N_ESTIMATORS = 200
 MAX_FEATURES = 0.1
 
-MAX_FEATURE_COLUMNS = 400_000       # refuse configurations that will not fit
+# skip configurations whose feature matrix would exhaust memory on a 16 GB
+# machine; none were skipped in the reported run
+MAX_FEATURE_COLUMNS = 400_000
 
 # -----------------------------------------------------------------------------
 
 sys.path.append(QUANT_CODE)
-sys.path.append(ROOT)
+sys.path.append(str(ROOT / "src"))
 
 import torch                                            # noqa: E402
 from quant import Quant                                 # noqa: E402

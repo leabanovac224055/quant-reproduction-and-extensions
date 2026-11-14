@@ -13,23 +13,30 @@ This verifies the INDEXING, not the representations: expected_value uses the
 same four representation functions as quant.py, so a fault in those would be
 reproduced rather than caught. What it establishes is that column c holds the
 value the provenance table says it should.
+
+Expects the UCR archive in data/ and the QUANT repository in Quant/ (see
+README). Set QUANT_ROOT if they live outside the repo.
+
+  python src/check_provenance_columns.py
 """
 
+import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-ROOT = "D:/AAI/TimeSeries/QuantProject"
-sys.path.append(f"{ROOT}/Quant/quant-main/quant-main/code")
-sys.path.append(ROOT)
+ROOT = Path(os.environ.get("QUANT_ROOT", Path(__file__).resolve().parent.parent))
+sys.path.append(str(ROOT / "Quant/quant-main/quant-main/code"))
+sys.path.append(str(ROOT / "src"))
 
 from quant import Quant
 from aeon.datasets import load_from_ts_file
 from quant_provenance import feature_provenance
 
-DATA = f"{ROOT}/data/Univariate2018_ts/Univariate_ts"
+DATA = str(ROOT / "data/Univariate2018_ts/Univariate_ts")
 DATASETS = ["GunPoint", "ECG200", "Chinatown", "Adiac",
             "StarLightCurves", "HandOutlines"]
 N_CASES = 20          # enough to compare values, small enough to be quick
