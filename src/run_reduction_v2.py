@@ -270,7 +270,7 @@ def run_dataset(name, group):
 
 
 def summarise():
-    from scipy.stats import wilcoxon
+    from scipy.stats import wilcoxon, t as t_dist
 
     df = pd.read_csv(OUT).drop_duplicates(
         ["group", "dataset", "fold", "strategy", "budget"])
@@ -287,8 +287,9 @@ def summarise():
             continue
         full = g[g.strategy == "full"]
         fast = g[g.strategy == "fast"]
+        full_i = full.set_index("dataset")
 
-        print(f"\n{'=' * 74}\n{group.upper()}  ({g.dataset.nunique()} datasets)")
+        print(f"\n{'=' * 96}\n{group.upper()}  ({g.dataset.nunique()} datasets)")
         print(f"transform is "
               f"{full.transform_s.mean() / full.total_s.mean():.0%} of runtime")
         print(f"  full        acc {full.accuracy.mean():.4f}  "
@@ -299,31 +300,54 @@ def summarise():
               f"total {fast.total_s.mean():6.2f}s")
 
         print(f"\n  {'strategy':<18}{'budget':>8}{'n':>4}{'acc':>9}{'vs full':>10}"
-              f"{'p':>8}{'clf x':>8}{'total x':>9}")
+              f"{'95% CI':>21}{'p':>8}{'clf x':>8}{'med x':>8}{'total x':>9}")
         for strategy in SELECTION + LEVERS:
             for budget in BUDGETS:
                 s = g[(g.strategy == strategy) & (g.budget == budget)]
                 if not len(s):
                     continue
-                pair = s.set_index("dataset")["accuracy"].to_frame("a").join(
-                    full.set_index("dataset")["accuracy"].to_frame("b")).dropna()
-                p = wilcoxon(pair.a, pair.b).pvalue if len(pair) > 5 else np.nan
+                s_i = s.set_index("dataset")
+
+                # paired per dataset against the full model
+                pair = s_i[["accuracy"]].join(
+                    full_i[["accuracy"]], rsuffix="_full").dropna()
+                d = pair["accuracy"] - pair["accuracy_full"]
+                n = len(d)
+
+                # 95% CI on the mean paired difference (t, n-1 df)
+                half = (t_dist.ppf(0.975, n - 1) * d.std(ddof=1) / np.sqrt(n)
+                        if n > 1 else np.nan)
+
+                # Wilcoxon; NaN if too few pairs or every difference is zero
+                p = np.nan
+                if n > 5 and not np.allclose(d.to_numpy(), 0):
+                    try:
+                        p = wilcoxon(pair["accuracy"], pair["accuracy_full"],
+                                     zero_method="wilcox").pvalue
+                    except ValueError:
+                        pass
+
+                # speedup: ratio of mean times, and the median per-dataset ratio
+                ratio = (full_i["classifier_s"] / s_i["classifier_s"]).dropna()
 
                 # n is the number of datasets this cell covers. The levers can
                 # only reach a budget on some series lengths, so a lever row
                 # with small n is a mean over a different, smaller set of
                 # datasets and is NOT comparable with the selection rows.
-                flag = "  <- partial" if len(pair) < len(full) else ""
+                flag = "  <- partial" if n < len(full) else ""
 
-                print(f"  {strategy:<18}{budget:>8.1%}{len(pair):>4}"
-                      f"{s.accuracy.mean():>9.4f}"
-                      f"{(pair.a - pair.b).mean():>+10.4f}{p:>8.3f}"
+                print(f"  {strategy:<18}{budget:>8.1%}{n:>4}"
+                      f"{s.accuracy.mean():>9.4f}{d.mean():>+10.4f}"
+                      f"   [{d.mean() - half:+.4f}, {d.mean() + half:+.4f}]"
+                      f"{p:>8.3f}"
                       f"{full.classifier_s.mean() / s.classifier_s.mean():>8.2f}"
+                      f"{ratio.median():>8.2f}"
                       f"{full.total_s.mean() / s.total_s.mean():>9.2f}{flag}")
 
-        print("\n  'partial' rows cover fewer datasets than the full model,")
-        print("  because that lever cannot reach the budget on every series")
-        print("  length. Their means are over a different subset.")
+        print("\n  95% CI: t interval on the mean per-dataset difference from the")
+        print("  full model. clf x: ratio of mean classifier times; med x: median")
+        print("  of the per-dataset ratios. 'partial' rows cover fewer datasets")
+        print("  than the full model and are means over a different subset.")
 
 
 def main():
