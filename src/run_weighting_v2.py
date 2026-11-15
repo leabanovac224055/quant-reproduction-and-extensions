@@ -192,50 +192,91 @@ def summarise():
     print(f"\n{df['dataset'].nunique()} datasets, {df['fold'].nunique()} folds")
     print(f"{len(full_depth)} reach every requested depth\n")
 
+    # fold mean per (dataset, depth, div): the unit before any test
     per = (df.groupby(["dataset", "depth", "div", "variant"])["accuracy"]
            .mean().unstack())[names]
 
-    for subset, label in [(sorted(df["dataset"].unique()), "all datasets"),
-                          (full_depth, f"{len(full_depth)} reaching every depth")]:
-        if len(subset) < 6 or (label.startswith(str(len(full_depth)))
-                               and len(subset) == df["dataset"].nunique()):
-            continue
+    def paired(a, b):
+        """n, mean difference and two-sided Wilcoxon p for one cell.
+        One value per dataset, so no dataset is counted twice."""
+        n = len(a)
+        diff = (a - b).mean() if n else np.nan
+        if n <= 5 or np.allclose(a.to_numpy(), b.to_numpy()):
+            return n, diff, np.nan
+        try:
+            p = wilcoxon(a, b, zero_method="wilcox").pvalue
+        except ValueError:
+            p = np.nan
+        return n, diff, p
 
+    def tests(sub, by_div):
+        """by_div=False: average over the quantile settings per dataset first.
+        by_div=True:  test each quantile setting separately."""
+        rows = []
+        divs = sorted(sub.index.get_level_values("div").unique()) if by_div else [None]
+        for div in divs:
+            for variant in names[1:]:
+                # drop failed runs pairwise, before averaging, so variant and
+                # baseline are always means over the same configurations
+                pair = sub[[variant, "baseline"]].dropna()
+                if by_div:
+                    pair = pair.xs(div, level="div")
+                else:
+                    pair = pair.groupby(level=["dataset", "depth"]).mean()
+                for depth in depths:
+                    if depth not in pair.index.get_level_values("depth"):
+                        continue
+                    cell = pair.xs(depth, level="depth")
+                    n, diff, p = paired(cell[variant], cell["baseline"])
+                    rows.append(dict(div=div, variant=variant, depth=depth,
+                                     n=n, diff=diff, p=p))
+        return pd.DataFrame(rows)
+
+    def show(out, title):
+        n_tests = int(out["p"].notna().sum())
+        thresh = 0.05 / n_tests if n_tests else np.nan
+        print(f"\n{title}")
+        print("difference from baseline")
+        print(out.pivot(index="depth", columns="variant",
+                        values="diff").round(4).to_string())
+        print("\np (two-sided Wilcoxon, zero_method='wilcox')")
+        print(out.pivot(index="depth", columns="variant",
+                        values="p").round(3).to_string())
+        print(f"n datasets per cell: {out['n'].min()} to {out['n'].max()}")
+        sig = out[out["p"] < thresh]
+        print(f"{n_tests} tests, Bonferroni threshold {thresh:.5f}, "
+              f"{len(sig)} surviving")
+        if len(sig):
+            print(sig.round(4).to_string(index=False))
+
+    subsets = [(sorted(df["dataset"].unique()), "all datasets")]
+    if 6 <= len(full_depth) < df["dataset"].nunique():
+        subsets.append((full_depth, f"{len(full_depth)} reaching every depth"))
+
+    for subset, label in subsets:
         sub = per.loc[subset]
         print(f"\n{'=' * 72}\n{label}")
 
         print("\nbaseline accuracy by depth and quantile setting")
         print(sub["baseline"].groupby(level=["div", "depth"]).mean()
               .unstack("div").round(4).to_string())
-
         print("\n  the paper predicts a decline past depth 6 at m/8 and m/16,")
         print("  and immunity at m/4")
 
-        print("\ndifference from baseline, by depth")
-        rows = []
-        for variant in names[1:]:
-            for depth in depths:
-                a = sub.xs(depth, level="depth")[variant]
-                b = sub.xs(depth, level="depth")["baseline"]
-                ok = a.notna() & b.notna()
-                rows.append({
-                    "variant": variant, "depth": depth,
-                    "n": int(ok.sum()),
-                    "diff": (a[ok] - b[ok]).mean(),
-                    "p": wilcoxon(a[ok], b[ok]).pvalue if ok.sum() > 5 else np.nan,
-                })
-        out = pd.DataFrame(rows)
-        print(out.pivot(index="depth", columns="variant",
-                        values="diff").round(4).to_string())
-        print("\np")
-        print(out.pivot(index="depth", columns="variant",
-                        values="p").round(3).to_string())
+        # primary: one value per dataset (mean over quantile settings)
+        show(tests(sub, by_div=False),
+             "PRIMARY: averaged over quantile settings, one value per dataset")
 
-        n_tests = len(out)
-        thresh = 0.05 / n_tests
-        sig = out[out["p"] < thresh]
-        print(f"\n{n_tests} tests, Bonferroni threshold {thresh:.5f}, "
-              f"{len(sig)} surviving")
+        # secondary: each quantile setting on its own, corrected across all of them
+        by_div = tests(sub, by_div=True)
+        n_all = int(by_div["p"].notna().sum())
+        print(f"\n{'-' * 72}\nPER QUANTILE SETTING "
+              f"(Bonferroni across all {n_all} tests: {0.05 / n_all:.5f})")
+        for div, g in by_div.groupby("div"):
+            show(g.assign(p=g["p"]),   # same table, one setting at a time
+                 f"m/{div}")
+        sig = by_div[by_div["p"] < 0.05 / n_all]
+        print(f"\nsurviving correction across all quantile settings: {len(sig)}")
         if len(sig):
             print(sig.round(4).to_string(index=False))
 
