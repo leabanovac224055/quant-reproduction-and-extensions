@@ -90,5 +90,6 @@ for length in [96, 176, 300, 512, 1024, 2709]:
         row += f"{('d' + str(best[0])) if best else '-':>10}"
     print(row)
 
-print("\n  The depth lever can only pick from six discrete points, so at tight")
-print("  budgets it collapses to depth 1 regardless of series length.")
+print("\n  The depth lever can only pick from six discrete points. At a 12.5%")
+print("  budget it collapses to depth 1 at every series length, and at 6.25%")
+print("  no depth fits at all ('-').")
