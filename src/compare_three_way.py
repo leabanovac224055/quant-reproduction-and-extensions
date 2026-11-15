@@ -102,6 +102,10 @@ def main():
             "published": pub_all.mean(),
             "theirs": t.mean(),
             "mine": m.mean() if len(m) else np.nan,
+            # spread across the 30 resamples, per dataset
+            "published_std": pub_all.std(ddof=1),
+            "theirs_std": t.std(ddof=1),
+            "mine_std": m.std(ddof=1) if len(m) > 1 else np.nan,
             "n_theirs": len(t),
             "n_mine": len(m),
         })
@@ -137,6 +141,9 @@ def main():
         print(f"  published {frame.published.mean():.4f}   "
               f"theirs {frame.theirs.mean():.4f}   "
               f"mine {frame['mine'].mean():.4f}")
+        print(f"  resample std   published {frame.published_std.mean():.4f}   "
+              f"theirs {frame.theirs_std.mean():.4f}   "
+              f"mine {frame['mine_std'].mean():.4f}")
         for col in ["theirs-pub", "mine-pub", "mine-theirs"]:
             d = frame[col].abs()
             print(f"  {col:<14} mean |diff| {d.mean():.4f}   "
