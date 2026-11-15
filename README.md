@@ -15,6 +15,7 @@ Lea Banovac and Donna Saji Sebastian.
 | The released code reproduces its published results on 138 of 142 datasets | mean absolute difference 0.0022 per dataset; over all 142 our run gives 0.8550, the value in the paper's own Fig. 6 |
 | The four exceptions are the four datasets a published Correction to the bake-off revised | their published results do not match a run on the corrected data |
 | Correcting for the comparisons the paper runs, its one significant result against the strongest interval methods no longer clears 0.05 | rSTSF, 0.0277 raw, 0.0553 under Holm |
+| QUANT's lead over DrCIF is not general across domains | at parity on image, sensor and spectro (60 of 112 datasets); no domain with five or more datasets differs significantly |
 | Reproduced under the paper's own protocol, the depth effect of its Fig. 8 is neither reproduced nor excluded | the 25-configuration surface spans 0.0059; paired 95 % intervals are about ±0.002 |
 | Importance-based feature selection at 12.5 % of the feature space has no detectable accuracy cost | 95 % intervals within ±0.006; 2.1x to 7.8x less single-core classifier time, depending on dataset size |
 | The interval-weighting extension the paper proposes does not help | no variant improves on the baseline, and no difference survives correction |
@@ -33,13 +34,13 @@ Lea Banovac and Donna Saji Sebastian.
 ## Layout
 
 ```
-src/              experiment and verification scripts
-  superseded/     earlier versions of experiments, not reported
-notebooks/        analysis and figure generation
-results/          every result file the report draws on
-  superseded/     results of the superseded runs
-figures/          the figures in the report, as PDF and PNG
-Donna/            two further extensions, described below
+src/                      experiment and verification scripts
+  superseded/             earlier versions of experiments, not reported
+notebooks/                analysis and figure generation
+results/                  every result file the report draws on
+  superseded/             results of the superseded runs
+figures/                  the figures in the report, as PDF and PNG
+exploratory_extensions/   two further extensions, described below
 ```
 
 ## Setup
@@ -70,7 +71,7 @@ shipped with the QUANT repository uses camel-case names the archive does not.
 so that the files sit at
 `data/JavaResampleIndices/JavaResampleIndices/<Dataset>/resample<i>Indices_TRAIN.txt`.
 
-Then:
+Then, with Python 3.10:
 
 ```
 pip install -r requirements.txt
@@ -169,7 +170,7 @@ repository; the other two read only files in `results/`.
 
 ## Further extensions
 
-`Donna/` holds two exploratory extensions by Donna Saji Sebastian, each with
+`exploratory_extensions/` holds two exploratory extensions by Donna Saji Sebastian, each with
 its own README and requirements. Both add features to QUANT's own
 representation rather than replacing it:
 
@@ -184,11 +185,10 @@ the report for what they show.
 ## Superseded runs
 
 `src/superseded/` and `results/superseded/` hold earlier versions of two
-experiments. They are kept because the report says they were discarded and
-why: in one the dataset list was changed after seeing a result, in another
-the feature subsets were drawn in a way that did not realise the weights they
-were meant to. Nothing reported in the paper comes from them. Each script
-carries a header explaining what replaced it.
+experiments, kept for transparency: in one the dataset list was changed after
+seeing a result, in another the feature subsets were drawn in a way that did
+not realise the weights they were meant to. Nothing reported in the paper
+comes from them. Each script carries a header explaining what replaced it.
 
 ## Note on the authors' code
 
