@@ -8,9 +8,12 @@ down by domain.
 Baselines come from aeon's copy of the bake-off results, as
 dict[method][dataset] -> array of 30 resample accuracies.
 
-Note those values are rounded to 2 decimal places, which inflates the number of
-draws relative to the paper's own figures. The per-dataset table used for the
-critical difference diagram is assembled in domain_sensitivity.ipynb instead.
+The means and win/draw/loss counts reproduce Fig. 1 exactly. The p-values
+differ slightly (DrCIF 0.1595 vs 0.1442, rSTSF 0.0294 vs 0.0277) because the
+Wilcoxon tests here use zero_method="wilcox", which drops zero differences;
+the paper's values correspond to zero_method="pratt". The per-dataset table
+used for the critical difference diagram is assembled in
+domain_sensitivity.ipynb instead.
 
     python src/domain_vs_baselines.py   ->  results/domain_vs_baselines.csv
 """
@@ -102,14 +105,14 @@ def main():
 
     # ---- overall, as a check against Fig. 1 --------------------------------
 
-    print("overall (should roughly match Fig. 1, modulo 2dp rounding)")
+    print("overall (means and W/D/L match Fig. 1; p uses zero_method='wilcox')")
     print("-" * 64)
     print(f"{'method':<12}{'mean':>9}{'quant-them':>13}{'W/D/L':>14}{'p':>10}")
     q = df["quant_published"]
     for label in methods:
         b = df[label]
         w, d, l = wdl(q, b)
-        p = wilcoxon(q, b).pvalue
+        p = wilcoxon(q, b, zero_method="wilcox").pvalue
         print(f"{label:<12}{b.mean():>9.4f}{q.mean() - b.mean():>+13.4f}"
               f"{f'{w}/{d}/{l}':>14}{p:>10.4f}")
     print(f"{'QUANT':<12}{q.mean():>9.4f}")
@@ -125,7 +128,7 @@ def main():
             gb = g[label]
             w, d, l = wdl(gq, gb)
             try:
-                p = wilcoxon(gq, gb).pvalue if len(g) >= 6 else np.nan
+                p = wilcoxon(gq, gb, zero_method="wilcox").pvalue if len(g) >= 6 else np.nan
             except ValueError:
                 p = np.nan
             rows.append({
