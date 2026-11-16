@@ -170,7 +170,7 @@ repository; the other two read only files in `results/`.
 
 ## Further extensions
 
-`exploratory_extensions/` holds two exploratory extensions by Donna Saji Sebastian, each with
+`exploratory_extensions/` holds two exploratory extensions, each with
 its own README and requirements. Both add features to QUANT's own
 representation rather than replacing it:
 
